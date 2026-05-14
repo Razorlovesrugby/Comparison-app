@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CULTURES } from "@/lib/cultures";
 
-const client = new Anthropic({
-  apiKey: process.env.LLM_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -21,19 +19,13 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(cultureData.label, cultureData.description);
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 200,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `Translate this event: "${event}"`,
-      },
-    ],
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: systemPrompt,
   });
 
-  const analogy = message.content[0].type === "text" ? message.content[0].text : "";
+  const result = await model.generateContent(`Translate this event: "${event}"`);
+  const analogy = result.response.text();
 
   return NextResponse.json({ analogy });
 }
