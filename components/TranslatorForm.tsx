@@ -25,11 +25,11 @@ export function TranslatorForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event: eventInput, culture: selectedCulture }),
       });
-      if (!res.ok) throw new Error("Translation failed");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Translation failed");
       setAnalogyResult(data.analogy);
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
       setIsLoading(false);
     }

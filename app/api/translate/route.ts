@@ -22,18 +22,23 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(cultureData.label, cultureData.description);
 
-  const response = await client.chat.completions.create({
-    model: "deepseek-chat",
-    max_tokens: 200,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: `Translate this event: "${event}"` },
-    ],
-  });
+  try {
+    const response = await client.chat.completions.create({
+      model: "deepseek-chat",
+      max_tokens: 200,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Translate this event: "${event}"` },
+      ],
+    });
 
-  const analogy = response.choices[0]?.message?.content ?? "";
-
-  return NextResponse.json({ analogy });
+    const analogy = response.choices[0]?.message?.content ?? "";
+    return NextResponse.json({ analogy });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("DeepSeek API error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 function buildSystemPrompt(cultureLabel: string, cultureDescription: string): string {
