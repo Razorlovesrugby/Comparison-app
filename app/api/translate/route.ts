@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { CULTURES } from "@/lib/cultures";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const client = new OpenAI({
+  baseURL: "https://api.deepseek.com",
+  apiKey: process.env.DEEPSEEK_API_KEY!,
+});
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -19,13 +22,16 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(cultureData.label, cultureData.description);
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    systemInstruction: systemPrompt,
+  const response = await client.chat.completions.create({
+    model: "deepseek-chat",
+    max_tokens: 200,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: `Translate this event: "${event}"` },
+    ],
   });
 
-  const result = await model.generateContent(`Translate this event: "${event}"`);
-  const analogy = result.response.text();
+  const analogy = response.choices[0]?.message?.content ?? "";
 
   return NextResponse.json({ analogy });
 }
