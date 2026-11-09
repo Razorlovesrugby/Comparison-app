@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CULTURES } from "@/lib/cultures";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("GEMINI_API_KEY is not set");
+    return NextResponse.json({ error: "Server is not configured" }, { status: 500 });
+  }
+
+  let body: { event?: unknown; culture?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { event, culture } = body;
 
-  if (!event || !culture) {
+  if (typeof event !== "string" || typeof culture !== "string" || !event.trim()) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -19,15 +28,17 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(cultureData.label, cultureData.description);
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    systemInstruction: systemPrompt,
-  });
-
-  const result = await model.generateContent(`Translate this event: "${event}"`);
-  const analogy = result.response.text();
-
-  return NextResponse.json({ analogy });
+  try {
+    const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: systemPrompt,
+    });
+    const result = await model.generateContent(`Translate this event: "${event}"`);
+    return NextResponse.json({ analogy: result.response.text() });
+  } catch (err) {
+    console.error("Gemini request failed", err);
+    return NextResponse.json({ error: "Upstream request failed" }, { status: 502 });
+  }
 }
 
 function buildSystemPrompt(cultureLabel: string, cultureDescription: string): string {
